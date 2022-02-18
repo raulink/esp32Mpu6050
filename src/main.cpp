@@ -14,7 +14,7 @@ const char* ssid ="Raulink";
 const char* password = "c0nd0m1n10.";
 
 //Añadir MQTT broker 
-const char* mqtt_server= "192.168.0.14:1883";
+const char* mqtt_server= "192.168.0.14";
 
 
 WiFiClient espCLient;
@@ -26,38 +26,13 @@ int ledPin = 2;
 
 Adafruit_MPU6050 mpu;
 
-void setup(void) {
-  Serial.begin(115200);
-  /* while (!Serial) {
-    delay(10); // will pause Zero, Leonardo, etc until serial console opens
-  } */
-
-  // Try to initialize!
-  if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
-    while (1) {
-      delay(10);
-    }
-  }
-
-  setup_wifi();
-  
-
-  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
-  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-  Serial.println("");
-  delay(100);
-}
-
-
 void setup_wifi(){
   delay(10);
   Serial.println();
   Serial.print("Conectando a:");
   Serial.println(ssid);
 
-  WiFi.begin();
+  WiFi.begin(ssid,password);
   while(WiFi.status()!=WL_CONNECTED){
     delay(500);
     Serial.print(".");    
@@ -65,7 +40,7 @@ void setup_wifi(){
   Serial.println("");
   Serial.print("Wifi conectado ");
   Serial.println("IP:");
-  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.localIP());  
 }
 
 void callback(char* topic, byte* message,unsigned int length){
@@ -93,6 +68,35 @@ void callback(char* topic, byte* message,unsigned int length){
   }
 }
 
+void setup(void) {
+  Serial.begin(115200);
+  /* while (!Serial) {
+    delay(10); // will pause Zero, Leonardo, etc until serial console opens
+  } */
+
+  // Try to initialize!
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+
+  setup_wifi();
+  client.setServer(mqtt_server,1883);
+  client.setCallback(callback);
+  pinMode(ledPin,OUTPUT);
+  
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_2_G);   // Para una medicion mas precisa se pone a 2g
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_260_HZ); //(MPU6050_BAND_21_HZ);
+  Serial.println("");
+  delay(100);
+}
+
+
+
 void reconnect(){
   while(!client.connected()){
     Serial.print("Intentando MQTT conexion...");
@@ -117,10 +121,8 @@ void loop() {
   if (!client.connected()){
     reconnect();
   }
-  Serial.print("Ini: "+millis());  
-  client.loop();
-  Serial.println("Fin: "+millis());  
   
+  client.loop();  
   mpu.getEvent(&a, &g, &temp);
   /* Print out the values */
   Serial.print(a.acceleration.x);
@@ -134,21 +136,24 @@ void loop() {
   Serial.print(g.gyro.y);
   Serial.print(",");
   Serial.print(g.gyro.z);
+  Serial.print(", ");
+  Serial.print(a.temperature);
+  
   Serial.println("");
 
   char ax[8];
   char ay[8];
   char az[8];
-  char temperature[8];
+  char temperatura[8];
   dtostrf(a.acceleration.x,4,2,ax);
   dtostrf(a.acceleration.y,4,2,ay);
   dtostrf(a.acceleration.z,4,2,az);
-  dtostrf(a.temperature,4,2,temperature);
+  dtostrf(a.temperature,4,2,temperatura);
   
   client.publish("esp32/ax",ax);
   client.publish("esp32/ay",ay);
   client.publish("esp32/az",az);
-  client.publish("exp32/temp",temperature);
+  client.publish("esp32/temp",temperatura);
 
-  delay(2);
+  delay(200);
 }
